@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Facitant | Group Shuffle</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600;700&display=swap"
+    />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero-content">
+        <p class="prompt">
+          <span class="prompt-path">~/facitant</span> $ ./shuffle --groups
+        </p>
+        <h1>
+          <span class="name">Facitant</span
+          ><span class="cursor" aria-hidden="true">_</span>
+        </h1>
+        <p class="tagline">
+          Shuffle students into groups and see where everyone sits.
+        </p>
+      </div>
+    </header>
+
+    <main>
+      <aside class="controls">
+        <section class="panel" aria-labelledby="students-heading">
+          <h2 id="students-heading">Students</h2>
+          <label class="drop" id="drop-zone">
+            <input
+              type="file"
+              id="file-input"
+              accept=".csv,.tsv,.txt,.docx,text/csv,text/plain"
+            />
+            <strong>Upload a roster</strong><br />
+            CSV, TXT, or Word (.docx), or drop it here
+          </label>
+          <p class="hint">
+            Google Docs: File → Download → Microsoft Word (.docx).<br />
+            Google Sheets: File → Download → CSV.<br />
+            Or copy the names and paste them below.
+          </p>
+          <label class="field" for="names">One name per line</label>
+          <textarea
+            id="names"
+            spellcheck="false"
+            placeholder="Amara Okafor&#10;Ben Liu&#10;Carla Mendes&#10;…"
+          ></textarea>
+          <p class="hint" id="load-message" role="status"></p>
+          <p class="privacy">
+            <b>private</b> Names stay in this browser. Nothing is sent to a
+            server.
+          </p>
+        </section>
+
+        <section
+          class="panel"
+          id="attendance-panel"
+          aria-labelledby="attendance-heading"
+          hidden
+        >
+          <div class="rowline">
+            <h2 id="attendance-heading">Who's here</h2>
+            <span class="count" id="present-count"></span>
+          </div>
+          <div class="roster" id="roster"></div>
+          <div class="rowline roster-actions">
+            <button class="linkish" id="mark-all" type="button">
+              Mark everyone here
+            </button>
+            <button class="linkish" id="clear-roster" type="button">
+              Clear roster
+            </button>
+          </div>
+        </section>
+
+        <section class="panel" aria-labelledby="groups-heading">
+          <h2 id="groups-heading">Groups</h2>
+          <div class="seg" role="group" aria-label="Group by">
+            <button type="button" data-mode="size" aria-pressed="true">
+              People per group
+            </button>
+            <button type="button" data-mode="count" aria-pressed="false">
+              Number of groups
+            </button>
+          </div>
+          <div class="stepper">
+            <button type="button" id="minus" aria-label="Fewer">−</button>
+            <output id="n-output" aria-live="polite">4</output>
+            <button type="button" id="plus" aria-label="More">+</button>
+            <span class="unit" id="unit">per group</span>
+          </div>
+          <div id="leftover-options">
+            <p class="field">When it doesn't divide evenly</p>
+            <div class="seg" role="group" aria-label="Leftover students">
+              <button type="button" data-leftover="bigger" aria-pressed="true">
+                Make some bigger
+              </button>
+              <button
+                type="button"
+                data-leftover="smaller"
+                aria-pressed="false"
+              >
+                Make some smaller
+              </button>
+            </div>
+          </div>
+          <p class="summary" id="preview"></p>
+          <button class="btn primary" id="shuffle" type="button" disabled>
+            Shuffle into groups
+          </button>
+        </section>
+      </aside>
+
+      <section class="room" aria-labelledby="room-title">
+        <div class="room-head">
+          <h2 id="room-title">Seating chart</h2>
+          <div class="room-tools" id="room-tools" hidden>
+            <button class="btn hide-present" id="reshuffle" type="button">
+              Shuffle again
+            </button>
+            <button class="btn hide-present" id="present" type="button">
+              Show on projector
+            </button>
+            <button class="btn exit-present" id="exit-present" type="button">
+              Exit projector view
+            </button>
+          </div>
+        </div>
+        <p class="notice" id="stale-notice" hidden>
+          The roster changed since this shuffle. Shuffle again to include the
+          changes.
+        </p>
+        <p class="hint swap-hint" id="swap-hint" hidden>
+          To move someone, click their name, then click the person to swap
+          with.
+        </p>
+        <div id="tables"></div>
+        <details class="export" id="export" hidden>
+          <summary>Groups as text</summary>
+          <textarea
+            id="export-text"
+            readonly
+            aria-label="Groups as text"
+          ></textarea>
+          <button class="btn" id="copy" type="button">Copy text</button>
+          <span class="hint" id="copy-message" role="status"></span>
+        </details>
+        <p class="sr-only" id="announcer" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <footer>
+      <p>
+        Facitant · TCSS 490 Artifact 2 · Autumn 2026 ·
+        <a href="https://cm0407.github.io/Software-Projects/">Portfolio</a>
+        <span class="qed" title="Q.E.D.">∎</span>
+      </p>
+    </footer>
+
+    <!-- File readers, loaded from a CDN. The integrity hash makes the browser
+         refuse a copy that's been changed, which matters on a page that
+         handles student names. -->
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"
+      integrity="sha384-D/t0ZMqQW31H3az8ktEiNb39wyKnS82iFY52QPACM+IjKW3jDUhyIgh2PApRqJZs"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+    <script
+      src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"
+      integrity="sha384-nFoSjZIoH3CCp8W639jJyQkuPHinJ2NHe7on1xvlUA7SuGfJAfvMldrsoAVm6ECz"
+      crossorigin="anonymous"
+      referrerpolicy="no-referrer"
+    ></script>
+
+    <!-- Order matters: app.js uses functions from the three files above it -->
+    <script src="js/roster.js"></script>
+    <script src="js/groups.js"></script>
+    <script src="js/seating.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>

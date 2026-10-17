@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Table Shuffle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+<style>
+:root{
+  --bg:#E4E9E2; --panel:#F8F9F5; --ink:#1C2A33; --muted:#56666C; --line:#C6CFC3;
+  --floor:#F2F4EE; --grid:rgba(28,42,51,.07); --accent:#2B6A59; --accent-ink:#FFFFFF;
+  --select:#F2C14E; --tag:#FFFFFF; --table-ink:#1C2A33;
+  --display:"Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --body:"Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11171B; --panel:#192126; --ink:#E4EAE3; --muted:#9AA8AA; --line:#2E3A40;
+    --floor:#151C20; --grid:rgba(228,234,227,.06); --accent:#5DB89D; --accent-ink:#0E1A16;
+    --select:#F2C14E; --tag:#212B31; --table-ink:#1C2A33; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11171B; --panel:#192126; --ink:#E4EAE3; --muted:#9AA8AA; --line:#2E3A40;
+  --floor:#151C20; --grid:rgba(228,234,227,.06); --accent:#5DB89D; --accent-ink:#0E1A16;
+  --select:#F2C14E; --tag:#212B31; --table-ink:#1C2A33; color-scheme: dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.5}
+button,input,textarea,select{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--select);outline-offset:2px}
+
+header.top{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1rem clamp(1rem,3vw,2rem)}
+.brand{font-family:var(--display);font-weight:800;font-size:1.35rem;letter-spacing:-.02em;margin:0;display:flex;align-items:center;gap:.55rem}
+.brand svg{flex:none}
+.btn{border:2px solid var(--ink);background:transparent;border-radius:999px;padding:.45rem 1rem;cursor:pointer;font-weight:700}
+.btn:hover{background:var(--panel)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-size:1.15rem;padding:.75rem 1.4rem;width:100%;font-family:var(--display);font-weight:800;letter-spacing:-.01em}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.primary:disabled{opacity:.45;cursor:not-allowed}
+.btn.small{padding:.25rem .75rem;font-size:.875rem;border-width:1.5px}
+
+main{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:clamp(1rem,2vw,1.5rem);padding:0 clamp(1rem,3vw,2rem) 2rem;align-items:start}
+@media (max-width:820px){main{grid-template-columns:1fr}}
+
+aside{background:var(--panel);border-radius:18px;padding:1.25rem;display:flex;flex-direction:column;gap:1.5rem}
+aside h2{font-family:var(--display);font-weight:600;font-size:1.05rem;margin:0 0 .6rem}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:1rem;text-align:center;cursor:pointer;color:var(--muted);font-size:.95rem}
+.drop.over{border-color:var(--accent);background:var(--floor)}
+.drop strong{color:var(--ink)}
+.drop input{position:absolute;width:1px;height:1px;opacity:0}
+.hint{font-size:.85rem;color:var(--muted);margin:.5rem 0 0}
+textarea{width:100%;min-height:9rem;resize:vertical;border:1.5px solid var(--line);border-radius:10px;padding:.6rem .7rem;background:var(--floor);line-height:1.45}
+label.field{display:block;font-size:.9rem;color:var(--muted);margin:.75rem 0 .3rem}
+
+.roster{max-height:16rem;overflow:auto;border:1.5px solid var(--line);border-radius:10px;margin-top:.6rem}
+.roster label{display:flex;align-items:center;gap:.6rem;padding:.35rem .7rem;border-bottom:1px solid var(--line);cursor:pointer;font-size:.95rem}
+.roster label:last-child{border-bottom:0}
+.roster label.out span{color:var(--muted);text-decoration:line-through}
+.roster input{accent-color:var(--accent);width:1.05rem;height:1.05rem}
+.rowline{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+.count{font-size:.9rem;color:var(--muted)}
+.linkish{background:none;border:0;padding:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:.85rem}
+
+.seg{display:flex;border:1.5px solid var(--line);border-radius:999px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;border-radius:999px;padding:.35rem .5rem;cursor:pointer;font-size:.9rem}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel);font-weight:700}
+.stepper{display:flex;align-items:center;gap:.75rem;margin-top:.6rem}
+.stepper button{width:2.5rem;height:2.5rem;border-radius:50%;border:2px solid var(--ink);background:transparent;font-size:1.3rem;font-weight:700;cursor:pointer;line-height:1}
+.stepper output{font-family:var(--display);font-weight:800;font-size:2.4rem;min-width:2.5ch;text-align:center;line-height:1}
+.stepper .unit{color:var(--muted)}
+.summary{font-size:.92rem;color:var(--muted);margin:.6rem 0 0;min-height:1.4em}
+
+.room{background-color:var(--floor);background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:28px 28px;border-radius:18px;padding:clamp(1rem,2.5vw,2rem);min-height:60vh;position:relative}
+.roomhead{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:1rem}
+.roomhead h2{font-family:var(--display);font-weight:800;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:-.02em;margin:0}
+.roomtools{display:flex;gap:.5rem;flex-wrap:wrap}
+.notice{background:var(--panel);border-left:4px solid var(--select);padding:.5rem .8rem;border-radius:6px;font-size:.9rem;margin:0 0 1rem}
+.tables{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1.5rem 1rem}
+
+.table{position:relative;aspect-ratio:1/1;max-width:340px;width:100%;margin:0 auto}
+.table.big{max-width:380px}
+.top-disc{position:absolute;left:50%;top:50%;width:38%;aspect-ratio:1/1;transform:translate(-50%,-50%);border-radius:50%;background:var(--c);display:grid;place-items:center;color:var(--table-ink);box-shadow:inset 0 -6px 0 rgba(0,0,0,.08)}
+.top-disc b{font-family:var(--display);font-weight:800;font-size:clamp(1.6rem,3.2vw,2.4rem);line-height:1}
+.top-disc small{display:block;font-size:.72rem;opacity:.75;text-align:center;margin-top:.15rem}
+.seat{position:absolute;transform:translate(-50%,-50%);max-width:104px;min-width:64px;background:var(--tag);border:2.5px solid var(--c);border-radius:10px;padding:.3rem .45rem;font-size:.86rem;line-height:1.2;text-align:center;cursor:pointer;overflow-wrap:anywhere;font-weight:700;color:var(--ink)}
+.seat:hover{border-color:var(--ink)}
+.seat.sel{background:var(--select);border-color:var(--select);color:#1C2A33}
+.dealing .seat{animation:seatIn .38s cubic-bezier(.2,.8,.3,1.2) backwards;animation-delay:var(--d)}
+@keyframes seatIn{from{opacity:0;transform:translate(-50%,-50%) scale(.4)}}
+@media (prefers-reduced-motion:reduce){.dealing .seat{animation:none}}
+
+.empty{display:grid;place-items:center;text-align:center;min-height:50vh;color:var(--muted)}
+.empty .ghost{width:160px;height:160px;border-radius:50%;border:3px dashed var(--line);margin:0 auto 1.25rem;display:grid;place-items:center;font-family:var(--display);font-size:3rem;font-weight:800;color:var(--line)}
+.empty p{max-width:32ch;margin:.25rem auto}
+.empty strong{color:var(--ink);font-family:var(--display);font-size:1.2rem}
+
+details.export{margin-top:1.5rem;background:var(--panel);border-radius:12px;padding:.6rem 1rem}
+details.export summary{cursor:pointer;font-weight:700}
+details.export textarea{margin-top:.6rem;min-height:8rem;font-size:.9rem}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* presenting */
+body.presenting header.top, body.presenting aside, body.presenting .roomtools .hide-present, body.presenting details.export, body.presenting .notice{display:none}
+body.presenting main{grid-template-columns:1fr;padding:clamp(.75rem,2vw,1.5rem)}
+body.presenting .room{min-height:calc(100vh - 3rem)}
+body.presenting .roomhead h2{font-size:clamp(2rem,5vw,3.4rem)}
+body.presenting .tables{grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+body.presenting .seat{font-size:1.02rem;max-width:124px}
+body.presenting .table{max-width:420px}
+.exit-present{display:none}
+body.presenting .exit-present{display:inline-block}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1 class="brand">
+    <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="7" fill="var(--accent)"/><circle cx="14" cy="3.5" r="3" fill="var(--ink)"/><circle cx="24.5" cy="14" r="3" fill="var(--ink)"/><circle cx="14" cy="24.5" r="3" fill="var(--ink)"/><circle cx="3.5" cy="14" r="3" fill="var(--ink)"/></svg>
+    Table Shuffle
+  </h1>
+  <button class="btn" id="themeBtn" type="button" aria-label="Switch light or dark mode">Light / dark</button>
+</header>
+
+<main>
+  <aside>
+    <section>
+      <h2>Your students</h2>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept=".csv,.tsv,.txt,.docx,text/csv,text/plain">
+        <strong>Upload a roster</strong><br>CSV, TXT or Word file — or drop it here
+      </label>
+      <p class="hint">From a Google Doc: copy the names and paste them below, or use File → Download → Plain text. From Google Sheets: File → Download → CSV.</p>
+      <label class="field" for="names">One name per line</label>
+      <textarea id="names" placeholder="Amara Okafor&#10;Ben Liu&#10;Carla Mendes&#10;…"></textarea>
+      <p class="hint" id="loadMsg" role="status"></p>
+    </section>
+
+    <section id="rosterSec" hidden>
+      <div class="rowline">
+        <h2>Who's here today</h2>
+        <span class="count" id="presentCount"></span>
+      </div>
+      <div class="roster" id="roster"></div>
+      <div class="rowline" style="margin-top:.5rem">
+        <button class="linkish" id="allIn" type="button">Mark everyone here</button>
+        <button class="linkish" id="clearAll" type="button">Clear roster</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Groups</h2>
+      <div class="seg" role="group" aria-label="Group by">
+        <button type="button" data-mode="size" aria-pressed="true">People per group</button>
+        <button type="button" data-mode="count" aria-pressed="false">Number of groups</button>
+      </div>
+      <div class="stepper">
+        <button type="button" id="minus" aria-label="Fewer">−</button>
+        <output id="nOut" aria-live="polite">4</output>
+        <button type="button" id="plus" aria-label="More">+</button>
+        <span class="unit" id="unit">per group</span>
+      </div>
+      <div id="leftoverWrap">
+        <label class="field">When students don't divide evenly</label>
+        <div class="seg" role="group" aria-label="Leftover students">
+          <button type="button" data-left="bigger" aria-pressed="true">Make some bigger</button>
+          <button type="button" data-left="smaller" aria-pressed="false">Make some smaller</button>
+        </div>
+      </div>
+      <p class="summary" id="preview"></p>
+      <button class="btn primary" id="shuffle" type="button" disabled>Shuffle into groups</button>
+    </section>
+  </aside>
+
+  <section class="room" aria-label="Seating chart">
+    <div class="roomhead">
+      <h2 id="roomTitle">Seating chart</h2>
+      <div class="roomtools" id="roomTools" hidden>
+        <button class="btn small hide-present" id="reshuffle" type="button">Shuffle again</button>
+        <button class="btn small hide-present" id="presentBtn" type="button">Show on projector</button>
+        <button class="btn small exit-present" id="exitPresent" type="button">Exit projector view</button>
+      </div>
+    </div>
+    <p class="notice" id="stale" hidden>Your roster changed since this shuffle. Shuffle again to include the changes.</p>
+    <p class="hint" id="swapHint" hidden style="margin:-.25rem 0 1rem">To move someone, tap their name, then tap the person to swap with.</p>
+    <div id="tables"></div>
+    <details class="export" id="export" hidden>
+      <summary>Groups as text</summary>
+      <textarea id="exportText" readonly aria-label="Groups as text"></textarea>
+      <button class="btn small" id="copyBtn" type="button" style="margin-top:.5rem">Copy text</button>
+      <span class="hint" id="copyMsg" role="status"></span>
+    </details>
+    <p class="sr" id="live" aria-live="polite"></p>
+  </section>
+</main>
+
+<script>
+(function(){
+  const KEY = 'tableshuffle:v1';
+  const COLORS = ['#8EC1E0','#F2C14E','#A4CF9E','#CDA8DD','#F5A9A0','#7FD6C4','#F7C59F','#B9C3CC','#E4D36B','#9FB4F0'];
+  const $ = id => document.getElementById(id);
+  let state = { text:'', absent:[], n:4, mode:'size', leftover:'bigger', groups:[], groupedFrom:[] };
+  let selected = null;
+
+  try { const s = localStorage.getItem(KEY); if (s) state = Object.assign(state, JSON.parse(s)); } catch(e){}
+  function save(){ try { localStorage.setItem(KEY, JSON.stringify(state)); } catch(e){} }
+
+  // ---------- roster ----------
+  function cleanLine(l){ return l.replace(/^\s*(?:[-*•·▪◦]|\d+[.)])\s+/, '').replace(/\s+/g,' ').trim(); }
+  function allNames(){ return state.text.split(/\r?\n/).map(cleanLine).filter(Boolean); }
+  function presentNames(){ const out = new Set(state.absent); return allNames().filter(n => !out.has(n)); }
+
+  function namesFromRows(rows){
+    rows = rows.map(r => r.map(c => String(c ?? '').trim())).filter(r => r.some(Boolean));
+    if (!rows.length) return [];
+    const head = rows[0].map(c => c.toLowerCase());
+    const fi = head.findIndex(h => /\b(first|given|fname|first[_ ]?name|preferred)\b/.test(h));
+    const li = head.findIndex(h => /\b(last|surname|family|lname|last[_ ]?name)\b/.test(h));
+    const ni = head.findIndex((h,i) => i!==fi && i!==li && /(name|student|learner|participant)/.test(h));
+    if (fi > -1 && li > -1) return rows.slice(1).map(r => [r[fi], r[li]].filter(Boolean).join(' '));
+    if (ni > -1) return rows.slice(1).map(r => r[ni]);
+    if (fi > -1) return rows.slice(1).map(r => r[fi]);
+    return rows.map(r => r.find(Boolean) || '');
+  }
+
+  async function readFile(file){
+    const msg = $('loadMsg');
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    let names = [];
+    try {
+      if (ext === 'docx') {
+        if (!window.mammoth) throw new Error('Word reader did not load');
+        const res = await window.mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() });
+        names = res.value.split(/\r?\n/).map(cleanLine);
+      } else {
+        const text = await file.text();
+        if ((ext === 'csv' || ext === 'tsv' || /[,\t]/.test(text)) && window.Papa) {
+          names = namesFromRows(window.Papa.parse(text, { skipEmptyLines:true }).data);
+        } else {
+          names = text.split(/\r?\n/).map(cleanLine);
+        }
+      }
+    } catch(e) {
+      msg.textContent = `Couldn't read ${file.name}. Try saving it as CSV or plain text, or paste the names instead.`;
+      return;
+    }
+    names = names.map(cleanLine).filter(Boolean);
+    if (!names.length){ msg.textContent = `No names found in ${file.name}. Check that it has one student per row.`; return; }
+    state.text = names.join('\n'); state.absent = [];
+    $('names').value = state.text;
+    msg.textContent = `Loaded ${names.length} names from ${file.name}. Edit the list if anything looks off.`;
+    save(); renderRoster();
+  }
+
+  function renderRoster(){
+    const names = allNames();
+    const out = new Set(state.absent);
+    state.absent = state.absent.filter(a => names.includes(a));
+    $('rosterSec').hidden = names.length === 0;
+    const box = $('roster'); box.innerHTML = '';
+    names.forEach(n => {
+      const lab = document.createElement('label');
+      if (out.has(n)) lab.className = 'out';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !out.has(n);
+      cb.addEventListener('change', () => {
+        state.absent = cb.checked ? state.absent.filter(a => a !== n) : [...state.absent, n];
+        lab.classList.toggle('out', !cb.checked);
+        save(); updateCounts();
+      });
+      const sp = document.createElement('span'); sp.textContent = n;
+      lab.append(cb, sp); box.append(lab);
+    });
+    updateCounts();
+  }
+
+  // ---------- grouping ----------
+  function plan(N){
+    if (!N) return null;
+    let g;
+    if (state.mode === 'count') g = Math.min(state.n, N);
+    else g = state.leftover === 'bigger' ? Math.max(1, Math.floor(N / state.n)) : Math.ceil(N / state.n);
+    const sizes = Array.from({length:g}, (_,i) => Math.floor(N/g) + (i < N % g ? 1 : 0));
+    return { g, sizes };
+  }
+  function describe(sizes){
+    const counts = {};
+    sizes.forEach(s => counts[s] = (counts[s]||0) + 1);
+    return Object.keys(counts).sort((a,b)=>b-a).map(s => `${counts[s]} ${counts[s]===1?'group':'groups'} of ${s}`).join(' and ');
+  }
+  function shuffle(a){ a = a.slice(); for (let i=a.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+  function doShuffle(){
+    const names = presentNames();
+    const p = plan(names.length); if (!p) return;
+    const s = shuffle(names);
+    const groups = Array.from({length:p.g}, () => []);
+    s.forEach((x,i) => groups[i % p.g].push(x));
+    state.groups = groups; state.groupedFrom = names.slice().sort();
+    selected = null; save();
+    renderTables(true);
+    $('live').textContent = `Shuffled ${names.length} students into ${describe(p.sizes)}.`;
+  }
+
+  function updateCounts(){
+    const all = allNames().length, here = presentNames().length;
+    $('presentCount').textContent = all ? `${here} of ${all} here` : '';
+    $('nOut').textContent = state.n;
+    $('unit').textContent = state.mode === 'size' ? 'per group' : (state.n === 1 ? 'group' : 'groups');
+    $('leftoverWrap').hidden = state.mode !== 'size';
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === state.mode));
+    document.querySelectorAll('[data-left]').forEach(b => b.setAttribute('aria-pressed', b.dataset.left === state.leftover));
+    const p = plan(here);
+    $('preview').textContent = p ? `${here} students → ${describe(p.sizes)}` : 'Add students to see how the groups will split.';
+    $('shuffle').disabled = here < 1;
+    const stale = state.groups.length && JSON.stringify(state.groupedFrom) !== JSON.stringify(presentNames().sort());
+    $('stale').hidden = !stale;
+  }
+
+  // ---------- seating chart ----------
+  function renderTables(deal){
+    const wrap = $('tables');
+    const has = state.groups.length > 0;
+    $('roomTools').hidden = !has; $('export').hidden = !has; $('swapHint').hidden = !has;
+    $('roomTitle').textContent = has ? (document.body.classList.contains('presenting') ? 'Find your table' : 'Seating chart') : 'Seating chart';
+    if (!has){
+      wrap.className = '';
+      wrap.innerHTML = `<div class="empty"><div><div class="ghost" aria-hidden="true">?</div><strong>No tables yet</strong><p>Upload or paste your class list, pick a group size, then shuffle.</p></div></div>`;
+      return;
+    }
+    wrap.className = 'tables' + (deal ? ' dealing' : '');
+    wrap.innerHTML = '';
+    let order = 0;
+    state.groups.forEach((grp, gi) => {
+      const t = document.createElement('div');
+      t.className = 'table' + (grp.length > 7 ? ' big' : '');
+      t.style.setProperty('--c', COLORS[gi % COLORS.length]);
+      t.setAttribute('role','group'); t.setAttribute('aria-label', `Table ${gi+1}: ${grp.join(', ')}`);
+      const disc = document.createElement('div'); disc.className = 'top-disc';
+      disc.innerHTML = `<div><b>${gi+1}</b><small>${grp.length} seats</small></div>`;
+      t.append(disc);
+      const k = grp.length, r = k > 7 ? 37 : 34;
+      grp.forEach((name, si) => {
+        const ang = (-90 + 360 * si / k) * Math.PI / 180;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'seat';
+        if (selected && selected.g === gi && selected.i === si) b.classList.add('sel');
+        b.textContent = name; b.title = name;
+        b.style.left = (50 + r * Math.cos(ang)) + '%';
+        b.style.top = (50 + r * Math.sin(ang)) + '%';
+        b.style.setProperty('--d', (order++ * 35) + 'ms');
+        b.addEventListener('click', () => seatClick(gi, si));
+        t.append(b);
+      });
+      wrap.append(t);
+    });
+    $('exportText').value = state.groups.map((g,i) => `Table ${i+1}: ${g.join(', ')}`).join('\n');
+    updateCounts();
+  }
+
+  function seatClick(g, i){
+    if (!selected){ selected = {g,i}; $('live').textContent = `${state.groups[g][i]} selected. Choose someone to swap with.`; }
+    else if (selected.g === g && selected.i === i){ selected = null; $('live').textContent = 'Selection cleared.'; }
+    else {
+      const a = state.groups[selected.g][selected.i], b = state.groups[g][i];
+      state.groups[selected.g][selected.i] = b; state.groups[g][i] = a;
+      $('live').textContent = `Swapped ${a} and ${b}.`;
+      selected = null; save();
+    }
+    renderTables(false);
+  }
+
+  // ---------- events ----------
+  const drop = $('drop');
+  $('file').addEventListener('change', e => { if (e.target.files[0]) readFile(e.target.files[0]); e.target.value=''; });
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) readFile(f); });
+
+  $('names').addEventListener('input', e => { state.text = e.target.value; $('loadMsg').textContent=''; save(); renderRoster(); });
+  $('allIn').addEventListener('click', () => { state.absent = []; save(); renderRoster(); });
+  $('clearAll').addEventListener('click', () => {
+    if (!confirm('Clear the whole roster and current groups?')) return;
+    state.text=''; state.absent=[]; state.groups=[]; state.groupedFrom=[]; $('names').value=''; save(); renderRoster(); renderTables(false);
+  });
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => {
+    state.mode = b.dataset.mode; if (state.mode === 'size' && state.n < 2) state.n = 2; save(); updateCounts();
+  }));
+  document.querySelectorAll('[data-left]').forEach(b => b.addEventListener('click', () => { state.leftover = b.dataset.left; save(); updateCounts(); }));
+  $('minus').addEventListener('click', () => { state.n = Math.max(state.mode==='size'?2:1, state.n-1); save(); updateCounts(); });
+  $('plus').addEventListener('click', () => { state.n = Math.min(40, state.n+1); save(); updateCounts(); });
+  $('shuffle').addEventListener('click', () => { doShuffle(); if (window.innerWidth < 820) document.querySelector('.room').scrollIntoView({behavior:'smooth'}); });
+  $('reshuffle').addEventListener('click', doShuffle);
+
+  function setPresent(on){ document.body.classList.toggle('presenting', on); renderTables(false); window.scrollTo(0,0); }
+  $('presentBtn').addEventListener('click', () => setPresent(true));
+  $('exitPresent').addEventListener('click', () => setPresent(false));
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape'){
+      if (document.body.classList.contains('presenting')) setPresent(false);
+      else if (selected){ selected = null; renderTables(false); }
+    }
+  });
+
+  $('copyBtn').addEventListener('click', async () => {
+    const ta = $('exportText');
+    try { await navigator.clipboard.writeText(ta.value); $('copyMsg').textContent = ' Copied.'; }
+    catch(e){ ta.focus(); ta.select(); $('copyMsg').textContent = ' Text selected — press Ctrl+C (or ⌘C) to copy.'; }
+  });
+
+  const root = document.documentElement;
+  $('themeBtn').addEventListener('click', () => {
+    const cur = root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    root.dataset.theme = cur === 'dark' ? 'light' : 'dark';
+  });
+
+  // init
+  $('names').value = state.text;
+  renderRoster(); renderTables(false); updateCounts();
+})();
+</script>
+</body>
+</html>
